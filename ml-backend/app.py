@@ -116,52 +116,41 @@ def generate_quiz():
         print(f"Gemini Quiz Error: {e}")
         return jsonify({'error': 'Failed to generate quiz from Gemini API.', 'details': str(e)}), 500
 
-
 @app.route('/generate-visual-roadmap', methods=['POST'])
 def generate_visual_roadmap():
     """Generate Mermaid diagram code for visual roadmap (like roadmap.sh)"""
     data = request.json
     roadmap = data['roadmap']
     
-    # Enhanced prompt to create roadmap.sh style diagrams
-    prompt = f"""You are an expert at creating learning roadmaps similar to roadmap.sh.
+    prompt = f"""Create a Mermaid flowchart for this learning roadmap.
 
-Given this roadmap structure:
-{json.dumps(roadmap, indent=2)}
+Roadmap: {roadmap['title']}
+Nodes: {', '.join([node['title'] for node in roadmap['nodes']])}
 
-Create a Mermaid flowchart diagram that:
-1. Shows clear learning progression from fundamentals to advanced
-2. Uses different node shapes for different types:
-   - Round nodes (( )) for start/prerequisites
-   - Rectangle nodes [ ] for main topics
-   - Stadium nodes ([ ]) for milestones/checkpoints
-3. Shows dependencies with arrows
-4. Uses colors to indicate difficulty (add :::beginner, :::intermediate, :::advanced classes)
-5. Groups related topics together when possible
+CRITICAL RULES:
+1. Use ONLY alphanumeric characters and spaces in node labels
+2. NO special characters: quotes, apostrophes, colons, parentheses, brackets
+3. Keep labels SHORT (max 30 characters)
+4. Use simple node IDs like: node1, node2, node3
+5. Format: flowchart TD
 
-Make it visually similar to roadmap.sh - clean, professional, and easy to follow.
-
-Return ONLY valid Mermaid code starting with "flowchart TD" or "graph TD".
-Include CSS styling at the end for the difficulty classes.
-
-Example format:
+Example:
 flowchart TD
-    Start((Start Here))
-    Topic1[Main Topic 1]
-    Topic2[Main Topic 2]
-    Milestone1([Checkpoint])
+    Start[Start Learning]
+    node1[Topic One]
+    node2[Topic Two]
+    node3[Topic Three]
     
-    Start --> Topic1
-    Topic1 --> Topic2
-    Topic2 --> Milestone1
+    Start --> node1
+    node1 --> node2
+    node2 --> node3
     
     classDef beginner fill:#90EE90
     classDef intermediate fill:#FFD700
     classDef advanced fill:#FF6347
-    
-    Topic1:::beginner
-    Topic2:::intermediate
-"""
+
+Create a similar diagram for the roadmap above. Use beginner/intermediate/advanced classes appropriately.
+Return ONLY the Mermaid code, no explanations or markdown blocks."""
 
     try:
         response = ai.models.generate_content(
@@ -171,19 +160,17 @@ flowchart TD
 
         mermaid_code = response.text.strip()
         
-        # Clean up the response - remove markdown code blocks if present
-        if mermaid_code.startswith('```mermaid'):
-            mermaid_code = mermaid_code.replace('```mermaid', '').replace('```', '').strip()
-        elif mermaid_code.startswith('```'):
-            mermaid_code = mermaid_code.replace('```', '').strip()
+        # Clean up response
+        mermaid_code = mermaid_code.replace('```mermaid', '').replace('```', '').strip()
+        
+        # SAFETY: Remove problematic characters
+        mermaid_code = mermaid_code.replace('"', '').replace("'", '').replace('`', '')
         
         return jsonify({'mermaidCode': mermaid_code})
 
     except Exception as e:
         print(f"Visual Roadmap Error: {e}")
         return jsonify({'error': 'Failed to generate visual roadmap.', 'details': str(e)}), 500
-
-
 chat_sessions = {}
 
 @app.route('/start-chat', methods=['POST'])
